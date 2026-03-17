@@ -90,7 +90,7 @@ class CasambiApi:
 
         self._callback_map: dict[int, list[Callable[[Unit], None]]] = {}
         self._cancel_bluetooth_callback: Callable[[], None] | None = None
-        self._reconnect_task: asyncio.Task
+        self._reconnect_task: asyncio.Task = None
 
     def _register_bluetooth_callback(self) -> None:
         self._cancel_bluetooth_callback = bluetooth.async_register_callback(
