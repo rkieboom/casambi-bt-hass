@@ -81,8 +81,8 @@ class CasambiLight(CasambiEntity, LightEntity, metaclass=ABCMeta):
         self._obj: Group | Unit
         super().__init__(api, description, obj)
 
-    def _capabilities_helper(self, unit: Unit) -> set[str]:
-        supported: set[str] = set()
+    def _capabilities_helper(self, unit: Unit) -> set[ColorMode]:
+        supported: set[ColorMode] = set()
         unit_modes = [uc.type for uc in unit.unitType.controls]
 
         if UnitControlType.RGB in unit_modes and UnitControlType.WHITE in unit_modes:
@@ -104,7 +104,7 @@ class CasambiLight(CasambiEntity, LightEntity, metaclass=ABCMeta):
 
         return supported
 
-    def _mode_helper(self, modes: set[ColorMode] | set[str] | None) -> str:
+    def _mode_helper(self, modes: set[ColorMode] | set[str] | None) -> ColorMode:
         if modes:
             if ColorMode.RGBW in modes:
                 return ColorMode.RGBW
@@ -122,7 +122,7 @@ class CasambiLight(CasambiEntity, LightEntity, metaclass=ABCMeta):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the entity of."""
-        await self._api.casa.setLevel(self._obj, 0)
+        await self._api.casa.turnOff(self._obj)
 
 
 class CasambiLightUnit(CasambiLight, CasambiUnitEntity):
@@ -227,18 +227,6 @@ class CasambiLightUnit(CasambiLight, CasambiUnitEntity):
         else:
             await self._api.casa.turnOn(self._obj)
 
-    async def async_turn_off(self, **kwargs: Any) -> None:
-        """Turn off the unit."""
-        # HACK: Try to get lights only supporting ONOFF to turn off.
-        # SetLevel doesn't seem to work for unknown reasons.
-        if self.color_mode == ColorMode.ONOFF:
-            unit = cast("Unit", self._obj)
-            await self._api.casa._send(  # noqa: SLF001
-                unit, bytes(unit.unitType.stateLength), _operation.OpCode.SetState
-            )
-        else:
-            await super().async_turn_off(**kwargs)
-
 
 class CasambiLightGroup(CasambiLight, CasambiNetworkGroup):
     """Defines a Casambi group entity."""
@@ -247,7 +235,7 @@ class CasambiLightGroup(CasambiLight, CasambiNetworkGroup):
         """Initialize a Casambi group entity."""
 
         # Find union of supported color modes.
-        supported_modes: set[str] = set()
+        supported_modes: set[ColorMode] = set()
         for unit in group.units:
             supported_modes = supported_modes.union(self._capabilities_helper(unit))
 
