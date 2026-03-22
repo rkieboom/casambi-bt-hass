@@ -7,7 +7,7 @@ from copy import copy
 import logging
 from typing import Any, Final, cast
 
-from CasambiBt import ColorSource, Group, Unit, UnitControlType, UnitState, _operation
+from CasambiBt import ColorSource, Group, Unit, UnitControlType, UnitState
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
