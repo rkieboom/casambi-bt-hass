@@ -134,8 +134,8 @@ class CasambiLightUnit(CasambiLight, CasambiUnitEntity):
 
         temp_control = unit.unitType.get_control(UnitControlType.TEMPERATURE)
         if temp_control is not None:
-            self._attr_min_color_temp_kelvin = temp_control.min
-            self._attr_max_color_temp_kelvin = temp_control.max
+            self._attr_min_color_temp_kelvin = temp_control.min  # type: ignore[assignment]
+            self._attr_max_color_temp_kelvin = temp_control.max  # type: ignore[assignment]
 
         desc = TypedEntityDescription(key=unit.uuid, name=None, entity_type="light")
 
@@ -239,14 +239,6 @@ class CasambiLightGroup(CasambiLight, CasambiNetworkGroup):
         for unit in group.units:
             supported_modes = supported_modes.union(self._capabilities_helper(unit))
 
-        # Color temperature for groups isn't supported yet.
-        # Open problems:
-        #  - How do we determine min and max temperature? Is it the union or intersection of the intervals?
-        #    We can't really scale the temperature since we don't have a min or max.
-        #  - How does the SetTemperature opcode work (for casambi-bt)?
-        if ColorMode.COLOR_TEMP in supported_modes:
-            supported_modes.remove(ColorMode.COLOR_TEMP)
-
         if len(supported_modes) == 0:
             supported_modes.add(ColorMode.UNKNOWN)
         self._attr_supported_color_modes = supported_modes
@@ -320,6 +312,11 @@ class CasambiLightGroup(CasambiLight, CasambiNetworkGroup):
         was_set = False
         if ATTR_BRIGHTNESS in kwargs:
             await self._api.casa.setLevel(self._obj, kwargs[ATTR_BRIGHTNESS])
+            was_set = True
+        if ATTR_COLOR_TEMP_KELVIN in kwargs:
+            await self._api.casa.setTemperature(
+                self._obj, kwargs[ATTR_COLOR_TEMP_KELVIN]
+            )
             was_set = True
         if ATTR_RGB_COLOR in kwargs:
             await self._api.casa.setColor(self._obj, kwargs[ATTR_RGB_COLOR])
