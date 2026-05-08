@@ -8,6 +8,7 @@ import logging
 from typing import Any, Final, cast
 
 from CasambiBt import ColorSource, Group, Unit, UnitControlType, UnitState, _operation
+from CasambiBt.errors import ProtocolError
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
@@ -223,15 +224,42 @@ class CasambiLightUnit(CasambiLight, CasambiUnitEntity):
             set_state = True
 
         if set_state:
-            await self._api.casa.setUnitState(unit, state)
-        else:
-            await self._api.casa.turnOn(self._obj)
+            try:
+                await self._api.casa.setUnitState(unit, state)
+                return
+            except ProtocolError as err:
+                # Classic networks don't support SetState via INVOCATION.
+                # Fall back to individual operations that Classic does support.
+                if not (self._api.is_classic_network or "Classic networks" in str(err)):
+                    raise
+
+            if ATTR_BRIGHTNESS in kwargs:
+                await self._api.casa.setLevel(unit, kwargs[ATTR_BRIGHTNESS])
+                return
+            if ATTR_RGB_COLOR in kwargs:
+                await self._api.casa.setColor(unit, kwargs[ATTR_RGB_COLOR])
+                return
+            if ATTR_RGBW_COLOR in kwargs:
+                rgb, w = kwargs[ATTR_RGBW_COLOR][:3], kwargs[ATTR_RGBW_COLOR][3]
+                await self._api.casa.setColor(unit, rgb)
+                await self._api.casa.setWhite(unit, w)
+                return
+            if ATTR_COLOR_TEMP_KELVIN in kwargs:
+                await self._api.casa.setTemperature(unit, kwargs[ATTR_COLOR_TEMP_KELVIN])
+                return
+            if ATTR_XY_COLOR in kwargs:
+                await self._api.casa.setColorXY(unit, kwargs[ATTR_XY_COLOR])
+                return
+
+        await self._api.casa.turnOn(self._obj)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the unit."""
         # HACK: Try to get lights only supporting ONOFF to turn off.
-        # SetLevel doesn't seem to work for unknown reasons.
-        if self.color_mode == ColorMode.ONOFF:
+        # SetLevel doesn't seem to work for unknown reasons on EVO.
+        # Classic networks don't support SetState via INVOCATION, so use
+        # setLevel directly.
+        if self.color_mode == ColorMode.ONOFF and not self._api.is_classic_network:
             unit = cast("Unit", self._obj)
             await self._api.casa._send(  # noqa: SLF001
                 unit, bytes(unit.unitType.stateLength), _operation.OpCode.SetState

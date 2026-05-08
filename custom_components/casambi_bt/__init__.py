@@ -127,6 +127,17 @@ class CasambiApi:
         """Return True if the controller is available."""
         return self.casa.connected
 
+    @property
+    def protocol_version(self) -> int | None:
+        raw = getattr(self.casa, "rawNetworkData", None) or {}
+        pv = raw.get("network", {}).get("protocolVersion")
+        return pv if isinstance(pv, int) else None
+
+    @property
+    def is_classic_network(self) -> bool:
+        pv = self.protocol_version
+        return pv is not None and pv < 10
+
     def get_units(
         self, control_types: list[UnitControlType] | None = None
     ) -> Iterable[Unit]:
