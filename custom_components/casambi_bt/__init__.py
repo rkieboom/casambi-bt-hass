@@ -191,6 +191,10 @@ class CasambiApi:
     @callback
     def _casa_disconnect(self) -> None:
         if self._reconnect_task is None or self._reconnect_task.done():
+            _LOGGER.warning(
+                "Casambi network %s disconnected unexpectedly; scheduling reconnect.",
+                self.address,
+            )
             self._reconnect_task = self.conf_entry.async_create_background_task(
                 self.hass, self._delayed_reconnect(), "Delayed reconnect"
             )
@@ -233,6 +237,7 @@ class CasambiApi:
             except AttributeError:
                 _LOGGER.debug("Unexpected failure during disconnect.")
             await self.connect(_is_reconnect=True)
+            _LOGGER.warning("Casambi network %s reconnected successfully.", self.address)
         finally:
             self._reconnect_lock.release()
 
